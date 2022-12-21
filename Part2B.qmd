@@ -1,0 +1,132 @@
+---
+title: "API Analysis using Covid Act Now Data"
+author: 
+  - name: Jason Haw
+date: 2022-12-13
+format: html
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r library}
+library(jsonlite)
+library(httr)
+library(tidyverse)
+```
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.fullwidth = TRUE,
+  fig.width = 8,
+  fig.height = 5
+)
+```
+
+# Research Question
+
+We aim to answer the question: **How does Baltimore City test positivity trends compare to Maryland (MD) and the United States (US) overall?** This is a descriptive study that describes general trends in seven-day test positivity ratio (`pos7dave`) across Baltimore City, MD, and the US (`levels`) across days (`days`) from March 2020 until the latest available data from our data source, COVID ACT NOW.
+
+
+## Saving and re-reading the data
+
+```{r read_data}
+# Test if a directory named data exists locally (will create if it doesn't exist)
+ifelse(!dir.exists("data"), dir.create("data"),
+       "Directory is already created")
+
+# Read the data only once
+balt_testpos_path <- "data/balt_testpos.Rdata"
+
+if (!file.exists(balt_testpos_path)) {
+  save(balt_testpos, file = balt_testpos_path)
+} else {
+  load(balt_testpos_path)
+}
+```
+
+# Test positivity time trends in Baltimore City, Maryland, and the United States
+
+We now examine the test positivity time trends by year across Baltimore City, MD, and the US.
+
+```{r timetrend}
+#| fig.width = 10
+
+library(lubridate)
+
+ggplot(balt_testpos, aes(x = monthday, y = pos7dave, group = year, color = factor(year))) +
+  geom_line(size = 1) +
+  facet_wrap(~level) +
+  scale_x_datetime(breaks = make_datetime(2020,1:12), labels = month.abb) +
+  labs(y = "Test positivity ratio (7-day moving average)", x = "",
+       title = "The general time trend of test positivity in Baltimore is similar to Maryland and the United States overall",
+       subtitle = "Baltimore experienced the Delta and Omicron waves around the same time as the state and country",
+       caption = "Data retrieved from COVID ACT NOW") +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        legend.title = element_blank(),
+        legend.position = c(0.9, 0.8))
+```
+We see that generally, trends in Baltimore follow what is happening in MD and the US overall. This is further confirmed by looking at a scatterplot of Baltimore test positivity ratio vs MD's and vs. the US's. We also fit a loess smoothed curve to show that generally, the relationship in the test positivity rates is monotonically increasing.
+
+```{r scatter}
+#| fig.width = 8
+
+# Convert data to wide
+balt_testpos_wide <- balt_testpos |>
+  pivot_wider(id_cols = "date", names_from = "level", values_from = "pos7dave") |>
+  mutate(diff_md = Baltimore - MD,
+         diff_us = Baltimore - US)
+
+ggplot(balt_testpos_wide) +
+  geom_point(aes(x = Baltimore, y = MD, color = "vs. MD"), size = 0.5) +
+  geom_smooth(aes(x = Baltimore, y = MD, color = "vs. MD"), method = "loess") +
+  geom_point(aes(x = Baltimore, y = US, color = "vs. US"), size = 0.5) +
+  geom_smooth(aes(x = Baltimore, y = US, color = "vs. US"), method = "loess") +
+  labs(y = "Test positivity with comparison area", x = "Test positivity in Baltimore City",
+       title = "Generally, trends in test positivity in Baltimore follow trends in MD and US overall",
+       subtitle = "However, a few Baltimore City rates do not peak as much as the rest of MD and US overall",
+       caption = "Data retrieved from COVID ACT NOW") +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        legend.title = element_blank(),
+        legend.position = c(0.8, 0.2))
+```
+
+However, we see that there are days where the Baltimore City rates do not peak as much as the rest of MD and the US overall.
+
+# Differences in Test Positivity Ratio between Baltimore City and MD and the US
+
+We then further investigate these differences in test positivity by calculating the difference between Baltimore's and MD's and the US's for each day. We plot the differences as follows:
+
+```{r bardiff}
+#| fig.width = 8
+
+ggplot(balt_testpos_wide, aes(x = date)) +
+  geom_bar(aes(y = diff_md, fill = "Difference from MD"), alpha = 0.7, stat = "identity") +
+  geom_bar(aes(y = diff_us, fill = "Difference from US"), alpha = 0.2, stat = "identity") +
+  labs(y = "Difference in test positivity ratio (7-day moving average)", x = "",
+       title = "In 2021 and 2022, Baltimore positivity ratios were generally lower than MD and US overall",
+       subtitle = "In late 2020, Baltimore positivity ratios were higher than MD and US overall",
+       caption = "Data retrieved from COVID ACT NOW") +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        legend.title = element_blank(),
+        legend.position = c(0.2, 0.2))
+```
+
+We then see that on most days, Baltimore City test positivity rates are lower than MD's and the US's.
+
+# Summary
+
+Using COVID test positviity data from COVID ACT NOW, we find that Baltimore city test positivity ratio follows time trends similar to what is seen in MD and the US overall. However, on most days, Baltimore test positivity ratio is lower than MD's and the US's.
+
+# Functions Used
+
+* Three API calls: US time series data, MD time series data, Baltimore time series data
+* `dplyr`: `arrange`, `group_by`, `mutate`, `pivot_wider`, `ungroup`
+* `lubridate`: `make_datetime`
+* `purrr`: `map` and `map_dfr`
+* `ggplot2` geoms: `geom_line`, `geom_bar`, `geom_point`, `geom_smooth`
+* `zoo`: `rollmeanr`

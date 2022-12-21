@@ -1,0 +1,304 @@
+---
+title: "Confidence Interval of the Mean, and Sine and Cosine Functions"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Confidence Interval of the Mean, and Sine and Cosine Functions}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.fullwidth = TRUE,
+  fig.width = 8,
+  fig.height = 5
+)
+
+```
+
+```{r setup}
+library(calc.ci)
+```
+
+In this vignette, we demonstrate the three functions included in the `calc.ci` package: `fn_cos`, `fn_sin`, and `calculate_CI`
+
+# Cosine function (fn_cos)
+
+`fn_cos` provides a truncated series expansion of the form:
+
+$$\cos(x) = 1 - \frac{x^2}{2!} + \frac{x^4}{4!} - \frac{x^6}{6!} \cdots$$
+
+`fn_cos` requires the following arguments:
+
+* `x`: the number with which to evaluate the cosine function
+* `k`: the number of terms after the constant 1
+
+Here, we demonstrate how well the `fn_cos` function approximates the base R `cos` function as `k` increases.
+
+```{r fn_cos}
+# Generate a vector of values from 0 to 10
+x <- seq(0, 10, length.out = 101)
+
+# Generate a data frame of values for cos(x), and fn_cos(x, k) for k = 1, 3, 5, 7, 9
+df <- data.frame(x = x,
+                 cosx = cos(x),
+                 cosx1 = sapply(x, function(x) fn_cos(x, 1)),
+                 cosx3 = sapply(x, function(x) fn_cos(x, 3)),
+                 cosx5 = sapply(x, function(x) fn_cos(x, 5)),
+                 cosx7 = sapply(x, function(x) fn_cos(x, 7)),
+                 cosx9 = sapply(x, function(x) fn_cos(x, 9)))
+
+# Plot the values
+library(ggplot2)
+ggplot(data = df, aes(x = x)) +
+  geom_point(aes(y = cosx, color = "a"), size = 1.5) +
+  geom_line(aes(y = cosx1, color = "b"), size = 1) +
+  geom_line(aes(y = cosx3, color = "c"), size = 1) +
+  geom_line(aes(y = cosx5, color = "d"), size = 1) +
+  geom_line(aes(y = cosx7, color = "e"), size = 1) +
+  geom_line(aes(y = cosx9, color = "f"), size = 1) +
+  scale_color_manual(breaks = c("a", "b", "c", "d", "e", "f"),
+                     values = c("#999999", "#f76915", "#eede04", "#a0d636", "#2fa236", "#333ed4"),
+                     labels = c("Base R cosine", "fn_cos k = 1", "fn_cos k = 3",
+                                "fn_cos k = 5", "fn_cos k = 7", "fn_cos k = 9")) +
+  labs(x = "x", y = "cosine(x)", title = "fn_cos approximation to base R cos") +
+  coord_cartesian(ylim = c(-5, 5)) +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.line = element_line(linewidth = 0.5),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank()
+)
+```
+
+Based on this plot, the approximation holds well when the number of terms `k` is greater than the number being evaluated `x`. Therefore, when using this function, make sure to select some number `k` larger than `x`.
+
+# Sine function (fn_sin)
+
+`fn_sin` provides a truncated series expansion of the form:
+
+$$\sin(x) = x - \frac{x^3}{3!} + \frac{x^5}{5!} - \frac{x^7}{7!} \cdots$$
+
+`fn_sin` requires the following arguments:
+
+* `x`: the number with which to evaluate the sine function
+* `k`: the number of terms after the constant x
+
+Here, we demonstrate how well the `fn_sin` function approximates the base R `sin` function as `k` increases.
+
+```{r fn_sin}
+# Generate a vector of values from 0 to 10
+x <- seq(0, 10, length.out = 101)
+
+# Generate a data frame of values for sin(x), and fn_sin(x, k) for k = 1, 3, 5, 7, 9
+df <- data.frame(x = x,
+                 sinx = sin(x),
+                 sinx1 = sapply(x, function(x) fn_sin(x, 1)),
+                 sinx3 = sapply(x, function(x) fn_sin(x, 3)),
+                 sinx5 = sapply(x, function(x) fn_sin(x, 5)),
+                 sinx7 = sapply(x, function(x) fn_sin(x, 7)),
+                 sinx9 = sapply(x, function(x) fn_sin(x, 9)))
+
+# Plot the values
+library(ggplot2)
+ggplot(data = df, aes(x = x)) +
+  geom_point(aes(y = sinx, color = "a"), size = 1.5) +
+  geom_line(aes(y = sinx1, color = "b"), size = 1) +
+  geom_line(aes(y = sinx3, color = "c"), size = 1) +
+  geom_line(aes(y = sinx5, color = "d"), size = 1) +
+  geom_line(aes(y = sinx7, color = "e"), size = 1) +
+  geom_line(aes(y = sinx9, color = "f"), size = 1) +
+  scale_color_manual(breaks = c("a", "b", "c", "d", "e", "f"),
+                     values = c("#999999", "#f76915", "#eede04", "#a0d636", "#2fa236", "#333ed4"),
+                     labels = c("Base R sine", "fn_sin k = 1", "fn_sin k = 3",
+                                "fn_sin k = 5", "fn_sin k = 7", "fn_sin k = 9")) +
+  labs(x = "x", y = "sine(x)", title = "fn_sin approximation to base R cos") +
+  coord_cartesian(ylim = c(-5, 5)) +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_text(size = 12),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.line = element_line(linewidth = 0.5),
+        plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(size = 14, face = "bold", hjust = 0.5),
+        legend.title = element_blank()
+)
+```
+
+Based on this plot, similar to the `fn_cos` function, the approximation holds well when the number of terms `k` is greater than the number being evaluated `x`. Therefore, when using this function, make sure to select some number `k` larger than `x`.
+
+# Confidence Interval of the Mean
+
+`calculate_CI` calculates the confidence intervals of a sample mean and returns a vector of length 2, with the first value being the lower bound (`lower_bound`) and the second value being the upper bound (`upper_bound`). The required arguments are:
+
+* `x`: a vector of numbers read as a `ci_class` S3 object
+* `conf`: the confidence level expressed as a number from 0 to 1, with the default being 0.95.
+
+The `ci_class` S3 object, when printed, returns a message with the name of the clss and the number of observations.
+
+Here we demonstrate data on calculating the confidence interval of the mean using data featured in the [TidyTuesday Podcast Episode 5: National Park Visits](https://www.tidytuesday.com/5). This is a longitudinal data of all annual visitor parks of parks in the National Parks Service. Instructions for downloading the data, as well as the data dictionary are available [here](https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-09-17). Each row represents a park-year.
+
+We will aim to answer the question: Which US National Park region is the most visited park region, based on the average of average annual number of visitors from 2011 to 2016 across a random sample of 30 parks within each region? The regions of the National Park Service are: AK (Alaska Region), IM (Intermountain Region), MW (Midwest Region), NC (National Capital Region), NE (Northeast Region), PW (Pacific-West Region), SE (Southeast Region).
+
+We first read all the data in:
+
+```{r read_data}
+# Store the name of the csv on TidyTuesday github
+park_url <- "national_parks.csv"
+
+# Test if a directory named data exists locally (will create if it doesn't exist)
+ifelse(!dir.exists("data"), dir.create("data"), "Directory is already created")
+
+# Read the data only once
+park_path <- "data/park_visits.Rdata"
+
+if (!file.exists(park_path)) {  
+  park_visits <- paste0("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-09-17/", park_url) |>
+    readr::read_csv() |>
+    janitor::clean_names()
+  save(park_visits, file = park_path)
+} else {
+  load(park_path)
+}
+```
+
+We first subset our data set to retrieve only data for the years from 2011 to 2016. Then, we "flatten" the data set by calculating the five-year annual average pf visitors for each park. Then, we take a random sample of 30 parks from each region. Within each region, we summarize the average of annual five-year average visitors and calculate the 95% confidence interval. For the Alaska Region, we will sample all parks since there are only 15 parks.
+
+```{r dataclean}
+set.seed(840) # For reproducibility of random sample
+
+# Calculate the 5-year annual average of visitors for each park
+park30_5yr <- park_visits |> 
+  dplyr::filter(year %in% c(2011:2016)) |>
+  dplyr::group_by(gnis_id) |>
+  dplyr::summarize(ave5yr = mean(visitors)) |>
+  dplyr::ungroup()
+
+# Add the region information (excldue NT - not classified)
+park30_5yr_region <- park_visits |>
+  dplyr::arrange(gnis_id, desc(year)) |>
+  dplyr::group_by(gnis_id) |>
+  dplyr::filter(dplyr::row_number() == 1L) |>
+  dplyr::select(gnis_id, region) |>
+  merge(park30_5yr, by = "gnis_id", all.y = TRUE) |>
+  dplyr::filter(region != "NT")
+
+# Sample 30 parks from each region except Alaska
+park30_5yr_sample <- park30_5yr_region |>
+  dplyr::filter(region != "AK") |>
+  dplyr::group_by(region) |>
+  dplyr::slice_sample(n = 30) |>
+  dplyr::ungroup() |>
+  dplyr::add_row(park30_5yr_region[park30_5yr_region$region == "AK", ])
+
+# Add human readable names for the region
+park30_5yr_sample <- park30_5yr_sample |>
+  dplyr::mutate(region_name = dplyr::case_when(region == "AK" ~ "Alaska",
+                                               region == "IM" ~ "Intermountain",
+                                               region == "MW" ~ "Midwest",
+                                               region == "NC" ~ "National Capital",
+                                               region == "NE" ~ "Northeast",
+                                               region == "PW" ~ "Pacific-West",
+                                               region == "SE" ~ "Southeast"))
+
+# Check tabulation of parks by region
+table(park30_5yr_sample$region_name)
+```
+
+
+Calculating the average of annual five-year average visitors per region:
+
+```{r calc_ci}
+# Calculate the point estimate
+ptest <- park30_5yr_sample |> 
+  dplyr::group_by(region_name) |>
+  dplyr::summarize(avg_ptest = mean(ave5yr)) |>
+  dplyr::ungroup()
+
+# Create a for loop that stacks each CI results from calculate_CI into a data frame and append to the point estimate
+# Extract the list of regions
+regions <- as.list(levels(factor(park30_5yr_sample$region_name)))
+
+# Save empty data frame
+ciest <- NULL
+
+for (i in regions) {
+  ciest <- park30_5yr_sample |> 
+    dplyr::filter(region_name == i) |> 
+    dplyr::select(ave5yr) |> 
+    dplyr::pull() |> 
+    calculate_CI() |>
+    dplyr::mutate(region_name = i) |>
+    dplyr::add_row(ciest)
+}
+
+# Combine the data frames and show results
+results <- merge(ptest, ciest, by = "region_name")
+results
+```
+
+We then visualize the results with the means and the 95% CI:
+
+```{r viz}
+results |> 
+  ggplot(aes(x = reorder(as.factor(region_name), -avg_ptest), y = avg_ptest)) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin = lower_bound, ymax = upper_bound), width = 0.2) +
+  labs(x = "National Parks Region", y = "Average of annual five-year average visitors",
+       title = "The National Capital and Pacific-West regions are the most visited \nbut visitor numbers vary widely across parks within each region",
+       subtitle = "Based on 2011-2016 official visitor data on 30 randomly sampled parks within each region",
+       caption = "Error bars indicate 95% confidence intervals. Alaska only had 15 parks so all were sampled in that region.") +
+  scale_y_continuous(labels = scales::label_number(suffix = "M", scale = 1e-6)) +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 10, face = "bold"),
+        axis.line = element_line(linewidth = 0.5),
+        plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(size = 10, face = "bold", hjust = 0.5),
+        legend.title = element_blank()
+)
+```
+
+We also examine the underlying data by looking at the histograms within each region and we see that there are wide variation in the reported numbers.
+
+```{r histo}
+park30_5yr_sample |>
+  ggplot(aes(x = ave5yr)) +
+  geom_histogram(bins = 15) +
+  facet_wrap(~ region_name, ncol = 4) +
+  labs(x = "Annual five-year average visitors", y = "Count of parks",
+       title = "Annual visitor counts vary widely across parks within each region",
+       subtitle = "Based on 2011-2016 official visitor data on 30 randomly sampled parks within each region",
+       caption = "Each data point is a park. Alaska only had 15 parks so all were sampled in that region.") +
+  scale_x_continuous(labels = scales::label_number(suffix = "M", scale = 1e-6)) +
+  theme(panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text = element_text(size = 10),
+        axis.title = element_text(size = 10, face = "bold"),
+        axis.line = element_line(linewidth = 0.5),
+        plot.title = element_text(size = 12, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(size = 10, face = "bold", hjust = 0.5),
+        legend.title = element_blank(),
+        strip.text.x = element_text(size = 10, face = "bold")
+)
+```
+
+## Summary
+
+Of the seven National Parks Regions, the National Capital Region and Pacific-West regions report the most number of average annual five-year average of visitors. It is important to note that the confidence intervals of the averages are wide as there is a wide distribution in the five-year average of visitors across sampled parks within each region.
+
+## Functions Used
+
+* `dplyr`: `filter`, `group_by`, `summarize`, `ungroup`, `arrange`. `select`, `row_number`, `slice_sample`, `add_row`, `mutate`, `pull`
+* `ggplot2`: `geom_bar`, `geom_errorbar`, `geom_histogram`
+* Others not required:
+  * `readr`: `read_csv`
+  * `janitor`: `clean_names`
+  * `scales`: `label_number`
+

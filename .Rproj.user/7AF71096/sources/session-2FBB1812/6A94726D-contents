@@ -1,0 +1,195 @@
+---
+title: "140.653 Lab 01: Introduction to ggplot In-Class Exercise Answer Key"
+subtitle: | 
+  | Methods in Biostatistics 3 (140.653) 
+  | Jason Haw and Elizabeth Colantuoni
+author: "Jason Haw and Elizabeth Colantuoni"
+output: 
+  rmdformats::robobook:
+      number_sections: yes
+      highlight: haddock
+header-includes:
+- \usepackage[T1]{fontenc}
+- \usepackage{fancyhdr}
+- \usepackage{amsmath}
+- \usepackage{float}
+- \floatplacement{figure}{H}
+mainfont: Arial
+---
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+}
+
+.book .book-body .page-inner section.normal h1 {
+  font-size: 24px;
+  font-family: Arial, sans-serif;
+}
+
+.book .book-body .page-inner section.normal h1.title {
+  font-size: 2em;
+  margin-top: 0;
+  color: #024873;
+}
+
+.book .book-body .page-inner section.normal h1.subtitle {
+    font-size: 1em;
+    font-weight: 400;
+    margin-top: -15px;
+    color: #024873;  
+}
+
+
+.book .book-body .page-inner section.normal h2, 
+.book .book-body .page-inner section.normal h3, 
+.book .book-body .page-inner section.normal h4 {
+  font-size: 20px;
+  font-family: Arial, sans-serif;  
+}
+
+</style>
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=5)       # To override default scientific notation for large numbers
+options(digits=3)
+library(tidyverse)
+
+# Create custom theme
+custom_theme <- theme(
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  axis.text = element_text(size = 12),
+  axis.title = element_text(size = 14, face = "bold"),
+  axis.line = element_line(size = 0.5)
+)
+```
+
+Work together with your table-mates to complete the following:
+
+1. Load the "NepalAnthro.rdata" object. From the `nepal.anthro` data frame, create a new data frame that has only the first observation for each child (representing the baseline assessment in the Nepal Anthro study) with complete data on age, height, and weight.
+2. Create a scatterplot of weight against age.
+    a. Label the axes clearly and make sure that all observations can be seen
+    b. Jitter the data or use different levels of transparency as necessary
+    c. A smoothed curve allows us to emphasize the relationship between the average weight and age without making a strong parametric assumption, e.g. linearity. Add a smoothed curve (without error bands) for each of the following specifications (create three separate plots):
+        i. loess with `span = 0.5`
+        ii. a natural spline with 3 degrees of freedom *HINT*: First install and load the `splines()` package, then obtain the natural spline using `geom_smooth(method = "glm", formula = y ~ ns(x, df = 3), se = FALSE)`.
+        iii. kernel smoother with bandwidth 20 months. *HINT*: You would need to first sort the data by `age`, `wt`, and `id` then create a new variable using the `ksmooth` function and extract the output, specifically: `ksmooth(age, wt, bandwidth = 20)$y`. Use a `geom_line()` geom with this new variable as the `y` argument within `aes()`.
+    d. Describe the relationship between weight and age in 1-2 sentences as if for a journal article. Be as numerate as possible, i.e. your sentences should include numbers!
+3. Recreate the plot by using different colors for the plotting symbol for boys and girls.
+    a. Choose one of the smoothing functions in #3 to add a smoothed curve separately for boys and girls.
+    b. Describe the relationship between weight and age separately by sex in 1-2 sentences as if for a journal article. Be as numerate as possible.
+4. Describe how you constructed your figures in 1-2 sentences as if for the methods section of a journal article. When using statistical jargon, explain as plainly as possible.
+
+```{r answer, warning = FALSE, message = FALSE}
+## Read the data
+load("nepal.anthro.rdata")
+
+## Complete cases
+nepal_cc <- nepal.anthro |> arrange(id, num) |> group_by(id) |>
+  filter(row_number() == 1L) |>
+  select(id, age, ht, wt, sex) |> 
+  filter(!is.na(age) & !is.na(ht) & !is.na(wt)) |>
+  ungroup()
+
+
+## Plot weight against age and use the custom theme from the label
+plot_wt_age <- ggplot(data = nepal_cc, aes(x = age, y = wt)) +
+  geom_jitter(size = 1.5, alpha = 0.5) +
+  labs(x = "Age at baseline (in months)",
+       y = "Weight at baseline (in kilograms)") +
+  scale_x_continuous(breaks = seq(0, 60, 10)) +
+  scale_y_continuous(breaks = seq(0, 20, 5)) +
+  custom_theme
+plot_wt_age
+
+## Adding a smoothed curve
+# Natural spline with three degrees of freedom
+library(splines)
+plot_wt_age_ns <- plot_wt_age + 
+  geom_smooth(method = "glm", formula = y ~ ns(x, df = 3), se = FALSE,
+              size = 1.5, color = "#024873")
+plot_wt_age_ns
+
+# Loess with span = 0.5 - default in geom_smooth is loess
+plot_wt_age_loess <- plot_wt_age +
+  geom_smooth(span = 0.5, se = FALSE,
+              size = 1.5, color = "#024873")
+plot_wt_age_loess
+
+# Kernel smoother with bandwidth 20 months
+nepal_cc <- nepal_cc |> arrange(age, wt, id) |>
+  mutate(ksmooth_wt = ksmooth(age, wt, bandwidth = 20)$y)
+# Need to call nepal_cc again as the one originally stored in the ggplot object
+# does not have ksmooth_wt variable
+plot_wt_age_kernel <- plot_wt_age +
+  geom_line(data = nepal_cc, aes(y = ksmooth_wt),
+            size = 1.5, color = "#024873")
+plot_wt_age_kernel
+
+# Put them together - manually add a color aes
+plot_wt_age_smoothers <- plot_wt_age +
+  # Natural spine with three degrees of freedom
+    geom_smooth(aes(color = "1"),
+      method = "glm", formula = y ~ ns(x, df = 3), se = FALSE,
+      linewidth = 1.5) +
+  # Loess with span = 0.5
+    geom_smooth(aes(color = "2"),
+      span = 0.5, se = FALSE,
+      linewidth = 1.5) +
+  # Kernel smoother with bandwidth 20 months
+    geom_line(data = nepal_cc, aes(y = ksmooth_wt, color = "3"),
+              linewidth = 1.5) +
+  # Add the color legend specifications
+    scale_color_manual(breaks = c("1", "2", "3"),
+                       values = c("#024873", "#920045", "#67733C"),
+                       labels = c("natural spline with 3 df",
+                                  "loess with span = 0.5",
+                                  "kernel with bandwidth 20 months")) +
+  # Customize legend
+    theme(legend.position = c(0.2, 0.9),
+          legend.title = element_blank(),
+          legend.text = element_text(size = 10),
+          legend.key = element_blank()) + 
+  # Customize x-axis given we typically talk about age in years (12 month increments)
+    scale_x_continuous(limits = c(0, 60), 
+                     breaks = seq(0, 60, 12))
+plot_wt_age_smoothers
+  
+```
+
+A sample interpretation would be: *A scatterplot of the relationship between weight and age among a sample of 185 Nepali children showed an increasing trend, with yearly differences in average weight the greatest when comparing 24- to 36-month olds.  Specifically, the average weight among 12-, 24-, 36- and 48-month old children is approximately 7, 9, 12 and 14 kg, respectively.*
+
+
+```{r answer2, warning = FALSE, message = FALSE}
+## Plot weight against age separately by sex
+plot_wt_age_sex <- ggplot(data = nepal_cc, aes(x = age, y = wt, 
+                                               color = as.factor(sex))) +
+  geom_jitter(size = 1.5, alpha = 0.75) +
+  labs(x = "Age at baseline (in months)",
+       y = "Weight at baseline (in kilograms)") +
+  scale_x_continuous(breaks = seq(0, 60, 10)) +
+  scale_y_continuous(breaks = seq(0, 20, 5)) +
+  custom_theme +
+  # Add the color legend specifications
+  scale_color_manual(breaks = c(1, 2),
+                     values = c("#920045", "#67733C"),
+                     labels = c("Male", "Female")) +
+  theme(legend.position = c(0.1, 0.9),
+        legend.title = element_blank(),
+        legend.text = element_text(size = 10),
+        legend.key = element_blank())  
+plot_wt_age_sex
+
+## For this example, we will use the natural spline smoother
+plot_wt_age_sex_ns <- plot_wt_age_sex + 
+  geom_smooth(method = "glm", formula = y ~ ns(x, df = 3), se = FALSE,
+              linewidth = 1.5)
+plot_wt_age_sex_ns
+```
+A sample interpretation would be: *The scatterplot of the relationship between weight and age among a sample of 185 Nepali children shows an increasing trend that varies by sex of the child. Among 12- to 36-month old children, the increase in mean weight associated with increasing age is similar for both boys and girls although girls on average have lower weights.  After 36-months of age, the increase in mean weight with age is lower among girls compared to boys.*
+
+A sample methods sentence would be: *A scatterplot was used to visualize the correlation between weight and age at baseline among a subsample of 185 Nepali children in the study with complete measurements of age and weight. A smoothed curve based on a natural spline with three degrees of freedom was used to describe the mean (average) weight as a function of age, and the mean functions were created separately for boys and girls.*

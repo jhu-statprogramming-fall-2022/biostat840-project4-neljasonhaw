@@ -1,0 +1,20 @@
+"0","# API Key is stored in .Renviron
+apikey <- Sys.getenv(""COVID_ACT_NOW_API_KEY"")
+
+# Retrieve aggregated US data
+us_data_json <- GET(paste0(""https://api.covidactnow.org/v2/country/US.timeseries.json?apiKey="", apikey))
+us_data <- fromJSON(content(us_data_json, as = ""text""))
+"
+"2","No encoding supplied: defaulting to UTF-8.
+"
+"0",""
+"0","# Retrieve Maryland state-level COVID data"
+"0","md_data_json <- GET(paste0(""https://api.covidactnow.org/v2/state/MD.timeseries.json?apiKey="", apikey))"
+"0","md_data <- fromJSON(content(md_data_json, as = ""text""))"
+"2","No encoding supplied: defaulting to UTF-8.
+"
+"0","# Retrieve Baltimore City COVID data"
+"0","balt_data_json <- GET(paste0(""https://api.covidactnow.org/v2/county/24510.timeseries.json?apiKey="", apikey))"
+"0","balt_data <- fromJSON(content(balt_data_json, as = ""text""))"
+"2","No encoding supplied: defaulting to UTF-8.
+"

@@ -1,0 +1,438 @@
+---
+title: "140.653 Lab 01: Introduction to ggplot"
+subtitle: | 
+  | Methods in Biostatistics 3 (140.653) 
+  | Jason Haw and Elizabeth Colantuoni
+author: "Jason Haw and Elizabeth Colantuoni"
+output: 
+  rmdformats::robobook:
+      number_sections: yes
+      highlight: haddock
+header-includes:
+- \usepackage[T1]{fontenc}
+- \usepackage{fancyhdr}
+- \usepackage{amsmath}
+- \usepackage{float}
+- \floatplacement{figure}{H}
+mainfont: Arial
+---
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+}
+
+.book .book-body .page-inner section.normal h1 {
+  font-size: 24px;
+  font-family: Arial, sans-serif;
+}
+
+.book .book-body .page-inner section.normal h1.title {
+  font-size: 2em;
+  margin-top: 0;
+  color: #024873;
+}
+
+.book .book-body .page-inner section.normal h1.subtitle {
+    font-size: 1em;
+    font-weight: 400;
+    margin-top: -15px;
+    color: #024873;  
+}
+
+
+.book .book-body .page-inner section.normal h2, 
+.book .book-body .page-inner section.normal h3, 
+.book .book-body .page-inner section.normal h4 {
+  font-size: 20px;
+  font-family: Arial, sans-serif;  
+}
+
+</style>
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=5)       # To override default scientific notation for large numbers
+options(digits=3)
+```
+
+At the end of this lab, you should be able to:
+
+1. Understand the basic Grammar of Graphics syntax and how it applies in the `ggplot2` function in R
+2. Create a sample figure, i.e., a basic scatterplot, with sample data using `geom_point()` and `geom_jitter()`
+3. Layer the basic scatterplot with a smooth line using `geom_smooth()`
+4. Add custom overlays to the sample figure
+5. Create a custom theme in `ggplot2` and apply to the sample figure
+
+*Note that the plots were created with `ggplot` v.3.4.0 at the time of posting*
+
+# Introduction
+
+## Grammar of Graphics and *ggplot2*
+
+The Grammar of Graphics is a framework introduced by Leland Wilkinson in 1999 [(book)](https://link-springer-com.proxy1.library.jhu.edu/book/10.1007/0-387-28695-0) that provides a structured approach (grammar) to creating graphics.
+
+The Grammar of Graphics is powerful in that figures created using this approach are completely **reproducible**, meaning every aspect of graphical manipulation is easily documented, and **layered**, meaning plots from different data sources are easily overlaid.
+
+In R, the Grammar of Graphics is executed through the `ggplot2` package developed by Hadley Wickham [(free bookdown)](https://ggplot2-book.org/introduction.html) as part of the `tidyverse` package of packages. The bookdown provides an overview of all the basic `ggplot2` functions. RStudio has also provided a [`ggplot2` cheatsheet](https://raw.githubusercontent.com/rstudio/cheatsheets/main/data-visualization.pdf).
+
+The workflow for creating figures using `ggplot2` is **iterative** following the "grammatical structure" of the Grammar of Graphics.
+
+```{r ggframework, echo = FALSE, out.width = 500}
+knitr::include_graphics("ggframework.png")
+```
+
+([Image from Kirsten Packer’s *ggplot2* presentation last February 2019](http://www.seec.uct.ac.za/ggplot2-grammar-graphics))
+
+<br>
+
+## General *ggplot2* workflow
+
+The general workflow is as follows:
+
+1. The basic plot is **data** + **aesthetics** + **geometries (or statistics)**.
+  + The **data** source must be in tidy data format, meaning it is in a data matrix with all data processing already done
+  + The **aesthetics** are axes or positions that represent a **column** in data. This is referred to as `aes`.
+  + The **geometries** represent the way the aesthetics are presented. This is referred to as `geom`.
+    + Every `geom` has an associated `stat`, or statistic. The statistic  summarizes `aes`.
+    + *Generally*, one way to think about the difference is that `geom` plot every row in `aes`, while `stat` summarize across `aes` to one point.
+  + `geom`/`stat` build the visual representation of the underlying numerical data in `aes`. When we think of creating figures, we are really thinking about `geom`/`stat`. For example, bar charts are `geom_bar` while scatterplots are `geom_point`.
+2. We then adjust **coordinates** or **scales** as needed.
+  + **Coordinates** (`coord`) coordinate mapping of the `aes` to the vertical and horizontal axes in a Cartesian plane
+  + **Scales** (`scale`) map data values to the aesthetics space. Scales are particularly useful when changing the line type, shape, colors on the plot, which subsequently modify the legend.
+3. We can then **layer** multiple `geoms` as needed, or split the data into subset using `facets`.
+4. We can set a **theme**, whether preset or customized.
+  + The basic `ggplot2` theme is not used in publication-quality scientific figures.
+  + In this class, the minimum expectation is to use `theme_bw()` but you are highly encouraged to create your own themes which you can reuse for the rest of the labs.
+
+In this lab, we will practice with a sample data set, create a basic plot, and run through the entire workflow.
+
+<br>
+
+
+# Sample data: Periodontal disease treatment and the risk of preterm birth
+
+For this lab, we will use the publicly available data set from [Micalowicz *et al* (2006)](https://www-nejm-org.proxy1.library.jhu.edu/doi/full/10.1056/nejmoa062249) published in the *New England Journal of Medicine*, which was a multi-center randomized trial that examined whether timing of periodontal disease treatment (treatment: prior to 21 weeks gestation, control: after delivery) affects the likelihood of pre-term birth, defined as less than 37 weeks gestational age.
+
+This is a longitudinal data set of 823 women who were 13-16 weeks gestational age at randomization, followed by five monthly visits. There are 171 variables corresponding to the exposure, outcome, and covariates collected throughout the entire study period.
+
+The data set is currently set up in wide format, meaning each row represents one study participant, and the covariates and outcome data collected at follow-up visits are set up as separate columns. Full details on the data set, as well as the complete data dictionary are available [here](https://www.causeweb.org/tshs/obstetrics-and-periodontal-therapy/).
+
+In this lab, we will examine a simple relationship between two continuous variables: gestational age at the end of pregnancy (in days) and birth weight at time of delivery (in grams). We expect that generally, there is a positive association between gestational age and birth weight as these are two related measures for pre-term birth. Pre-term births are sometimes defined by gestational age, such as the case in this study, or by weight (a typical cutoff used is 2500 grams). We want to examine, visually, the level of agreement between these two definitions.
+
+We restrict the data to women whose pregnancies resulted to live births and were observed within the study period.  This leaves us with 793 women.
+
+The data set is available on the Comprehensive R Archive Network (CRAN) as part of the `medicaldata` package, stored as the `opt` data frame once the package is loaded in library. The variables we will be working with in this lab are:
+
++ `PID`: Patient unique identifier (ID)
++ `GA.at.outcome`: Gestational age in days
++ `Birthweight`: Birth weight in grams
++ `Birth.outcome`: Outcome of pregnancy with four levels
+  + Elective abortion
+  + Live birth
+  + Lost of FU (follow-up)
+  + Non-live birth (i.e., stillbirth or spontaneous abortion)
+  + *Note that the factor values have lagging spaces in the end, so we will need to add an additional data processing step using the `str_trim` function from the `stringr` package (part of `tidyverse`) and replace the affected columns using `mutate`*
+
+```{r loadsampledata, warning = FALSE, message = FALSE}
+# Only install.packages once when installing for the first time
+# install.packages(medicaldata)    
+library(medicaldata)
+# The data set is stored in opt, then we call it into the environment
+opt <- opt
+
+# install.packages(tidyverse)
+library(tidyverse)
+# Select the variables needed for the analysis
+  # PID = patient ID
+  # GA.at.outcome = gestational age in days
+  # Birthweight = birth weight in g
+# Restrict data to live births only (Birth.outcome == "Live birth")
+# But clean factor values first using str_trim and apply changes using mutate
+data <- opt |> mutate(across(where(is.factor), str_trim)) |>
+  filter(Birth.outcome == "Live birth") |>
+  select(PID, GA.at.outcome, Birthweight)
+head(data)
+```
+
+<br>
+
+# Basic scatterplot
+
+## Basic plot
+
+We first create a basic scatterplot, with the gestational age on the *x*-axis and birth weight on the *y*-axis.
+
+It is always good practice to store the `ggplot` object in the environment so that we can iteratively call it as we add more modifications.
+
+We will store the object as `basic_scatter`. Notice how the code defines the three basic elements of the plot: the `data` argument, the `aes` argument with the `x` and `y` arguments specified representing the *x*- and *y*-axes, and the `geom_point()` function indicating the geometry.
+
+```{r basic_scatter, message = FALSE, warning = FALSE}
+basic_scatter <- ggplot(data = data, aes(x = GA.at.outcome, y = Birthweight)) +
+  geom_point()
+basic_scatter
+```
+
+The `data` and `aes` arguments may be indicated within `ggplot()` or within the `geom` itself (in this case `geom_point()`).
+
+We may think of the `ggplot()` function as setting **global** arguments for the entire plot. For example, if we are certain that we will work with the same data and *x* and *y* values as we add more geometries, it is more efficient to declare the `data` and `aes` arguments within `ggplot()`.
+
+Otherwise, it is better to specify these arguments individually within the specific `geom` functions. We can also set the global arguments in `ggplot` and whatever `data` and `aes` arguments we indicate within the specific `geom` are overridden by the specific `geom` arguments.
+
+Our basic scatterplot should look the same regardless of where we indicate the `data` and `aes` arguments for our basic plot.
+
+```{r basic_scatter2, warning = FALSE, message = FALSE}
+basic_scatter2 <- ggplot() +
+  geom_point(data = data, aes(x = GA.at.outcome, y = Birthweight))
+basic_scatter2
+```
+
+Say we want to make the points scattered at the top more distinctly visible. We can change the geometry to a jittered version of the scatterplot, `geom_jitter()` and modify the size of the scatterplot points to `size = 1` to make the size of the points smaller.
+
+The figure should look something like this:
+
+```{r ex3, warning = FALSE, message = FALSE}
+basic_scatter <- ggplot(data = data, aes(x = GA.at.outcome, y = Birthweight)) +
+  geom_jitter(size = 1)
+basic_scatter
+```
+
+## Modify coordinates (axes limits and tick marks)
+
+We then specify the coordinates to specific manual limits, and specific tick values.
+
++ Say we want to change the gestational age axis to range from 147 to 315 days (corresponding to 21 to 45 weeks gestational age), set major tick marks every 28 days, and change the labels to weeks since it is more intuitive.
+  + We can achieve this using the `scale_x_continous()` function with the `limits`, `breaks`, and `labels` arguments. 
+  + Within `breaks()`, we use the base R `seq()` function to create a vector of values that specify the major tick marks.
+  + We then use `labels` to divide the days by 7.
++ Say we want to change the birth weight axis to have major tick marks every 500 grams instead of 1,000 grams. We also want to format the numbers with a thousands separator.
+  + We can achieve this using the `scale_y_continuous()` function with the `breaks` argument, and use the `seq()` function to specify the major tick marks.
+  + We then use the `labels` argument with a simple function to define the numeric format using the base R function `format()`.
+  
+  
+  If we want to overwrite the existing `ggplot2` object and add modifications, we simply call the object and add additional modifications using the `+` sign.
+
+```{r coordinate1, warning = FALSE, message = FALSE}
+basic_scatter <- basic_scatter + 
+  scale_x_continuous(limits = c(147, 315), 
+                     breaks = seq(147, 315, 28),
+                     labels = seq(147, 315, 28)/7) +
+  scale_y_continuous(breaks = seq(0, 5000, 500),
+                     labels = function(x) format(x, big.mark = ","))
+basic_scatter
+```
+
+If we want to rename the axis titles, we use the `labs()` function.
+
+```{r coordinate2, warning = FALSE, message = FALSE}
+basic_scatter <- basic_scatter +
+  labs(x = "Gestational age at birth (in weeks)",
+       y = "Birth weight at birth (in grams)")
+basic_scatter
+```
+
+<br>
+
+# Layering a smoothed line and custom plot
+
+## Adding a smooth line
+
+We use the `geom_smooth()` to apply a smoothed line that represents a moving average (mean) of the *y*-axis variable. While this is a summary statistic, the name of the function is `geom_smooth()`. Note that the `stat` counterpart of `geom_smooth()` is `stat_smooth()` and both should create the same smooth line. For now, we will accept defaults of this function on the smoothing function as we have not yet discussed the different smoothing functions in class.
+
+Say we want to change the smoothed curve line colors to a specific blue color (#024873), thicken the line, and lighten the confidence interval bands as well. We can specify this from within the `geom_smooth()` function. 
+
+```{r smooth1, warning = FALSE, message = FALSE}
+basic_scatter <- basic_scatter +
+  geom_smooth(linewidth = 1.5, color = "#024873", fill = "#024873", alpha = 0.1)
+basic_scatter
+
+# Using stat_smooth should achieve the same result
+basic_scatter3 <- basic_scatter + 
+  stat_smooth(linewidth = 1.5, color = "#024873", fill = "#024873", alpha = 0.1)
+basic_scatter3
+```
+
+## Adding a custom plot
+
+Say we want to identify the cutoffs for pre-term birth, i.e. 37 weeks gestational age and 2,500 g birth weight. We can easily do this by adding `geom_hline` and `geom_vline`. We can also modify the line type to "dashed" and thicken the line to `size = 0.75`. We can also choose to annotate our graph, and specify the location of the text relative to the position on the Cartesian plane using `annotate("text")`, where we specify `hjust` for text alignment, where `hjust = 0` for left-flush alignment, and specify the text using `label` and adding line breaks using `\n` within the string.
+
+```{r customplot1, warning = FALSE, message = FALSE}
+basic_scatter <- basic_scatter + 
+  geom_hline(yintercept = 2500, linetype = "dashed", linewidth = 0.75) +
+  geom_vline(xintercept = 37*7, linetype = "dashed", linewidth = 0.75) + 
+  # Recall the underlying x-axis is in days
+  annotate("text", x = 27*7, y = 3000, hjust = 0,
+           label = "Pre-term according to \n gestational age only") +
+  annotate("text", x = 40*7, y = 1500, hjust = 0,
+           label = "Pre-term according to \n birth weight only")
+basic_scatter
+```
+
+<br>
+
+# Custom themes
+
+There are many pre-set custom themes in `ggplot()`, such as `theme_bw()`. As mentioned, this is the minimum expected theme for all homework assignments in the class.
+
+```{r theme_bw, warning = FALSE, message = FALSE}
+basic_scatter + theme_bw()
+```
+
+There are also many pre-set themes in other packages. For example, this is a theme in the `ggthemes` package inspired by the data science website FiveThirtyEight:
+
+```{r theme_fivethirtyeight, warning = FALSE, message = FALSE}
+# install.packages("ggthemes")
+library(ggthemes)
+
+basic_scatter + theme_fivethirtyeight()
+```
+
+You may also choose to define every single element in a fully customizable theme. This example removes the grid lines and axis ticks, boldens the axes titles and adds the axis lines, and increases the font size of the axes titles and labels. You may store the custom theme in a theme object and just add the object to the ggplot with the `+` sign.
+
+```{r customtheme1, warning = FALSE, message = FALSE}
+# Create custom theme
+custom_theme <- theme(
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  axis.text = element_text(size = 12),
+  axis.title = element_text(size = 14, face = "bold"),
+  axis.line = element_line(size = 0.5)
+)
+
+basic_scatter <- basic_scatter + custom_theme
+basic_scatter
+```
+
+<br>
+
+Bringing everything together, the `ggplot2` object above was created as follows:
+
+```{r final_basicplot, warning = FALSE, message = FALSE}
+basic_scatter <- ggplot(data = data, aes(x = GA.at.outcome, y = Birthweight)) +
+  geom_jitter(size = 1) + 
+  scale_x_continuous(limits = c(147, 315), 
+                     breaks = seq(147, 315, 28),
+                     labels = seq(147, 315, 28)/7) +
+  scale_y_continuous(breaks = seq(0, 5000, 500),
+                     labels = function(x) format(x, big.mark = ",")) +
+  labs(x = "Gestational age at birth (in weeks)",
+       y = "Birth weight at birth (in grams)") +
+  geom_smooth(linewidth = 1.5, color = "#024873", fill = "#024873", alpha = 0.1) + 
+  geom_hline(yintercept = 2500, linetype = "dashed", linewidth = 0.75) +
+  geom_vline(xintercept = 37*7, linetype = "dashed", linewidth = 0.75) + 
+  # Recall the underlying x-axis is in days
+  annotate("text", x = 27*7, y = 3000, hjust = 0,
+           label = "Pre-term according to \n gestational age only") +
+  annotate("text", x = 40*7, y = 1500, hjust = 0,
+           label = "Pre-term according to \n birth weight only") +
+  custom_theme
+basic_scatter
+```
+
+# Adding a third variable: Identifying discordant observations
+
+It seems that based on the scatterplot, there is general agreement between the definitions of gestational age and birth weight on which births were considered pre-term. However, there were some births that were considered pre-term in one definition and not another. If we want to highlight data points that are discordant, i.e. where the definitions did not agree, we can specify a third aesthetic.
+
+First, we need to create a new binary variable in `data` that identifies these observations (`discord` where "Discordant" = definitions did not agree, "Concordant" = definitions agreed). Recall that pre-term birth is defined as either < 37 weeks gestational age or < 2,500 g birth weight.
+
+```{r discord_add, warning = FALSE, message = FALSE}
+# Create a new variable identifying discordant observations
+data <- data |> 
+  mutate(discord = 
+           case_when(GA.at.outcome < 37*7 & Birthweight < 2500 ~ "Concordant",
+                     GA.at.outcome >= 37*7 & Birthweight >= 2500 ~ "Concordant",
+                     GA.at.outcome < 37*7 & Birthweight >= 2500 ~ "Discordant",
+                     GA.at.outcome >= 37*7 & Birthweight < 2500 ~ "Discordant"))
+```
+
+Once we have defined this third variable, we can rewrite our code to incorporate this variable using the `color` argument within `aes`. We can also specify the colors manually using the `scale_color_manual()` function with the `breaks` specified as the category names and `values` specified as the colors in respective order as `breaks`. The colors we will use are #920045 for discordant observations and "darkgray" for concordant observations. We can even apply the same color to the annotated text for added emphasis.
+
+```{r addthird, warning = FALSE, message = FALSE}
+basic_scatter <- ggplot(data = data, aes(x = GA.at.outcome, y = Birthweight)) +
+  # Add aes(color = discord) within geom_jitter()
+  geom_jitter(aes(color = discord), size = 1) + 
+  scale_x_continuous(limits = c(147, 315), 
+                     breaks = seq(147, 315, 28),
+                     labels = seq(147, 315, 28)/7) +
+  scale_y_continuous(breaks = seq(0, 5000, 500),
+                     labels = function(x) format(x, big.mark = ",")) +
+  # Specifying the colors of the points manually
+  scale_color_manual(breaks = c("Concordant", "Discordant"),
+                     values = c("darkgray", "#920045")) +
+  labs(x = "Gestational age at birth (in weeks)",
+       y = "Birth weight at birth (in grams)") +
+  geom_smooth(linewidth = 1.5, color = "#024873", fill = "#024873", alpha = 0.1) + 
+  geom_hline(yintercept = 2500, linetype = "dashed", linewidth = 0.75) +
+  geom_vline(xintercept = 37*7, linetype = "dashed", linewidth = 0.75) + 
+  # Recall the underlying x-axis is in days
+  annotate("text", x = 27*7, y = 3000, hjust = 0, color = "#920045",
+           label = "Pre-term according to \n gestational age only") +
+  annotate("text", x = 40*7, y = 1500, hjust = 0, color = "#920045",
+           label = "Pre-term according to \n birth weight only") +
+  custom_theme
+basic_scatter
+```
+
+Finally, we can move the legend to inside the plot to maximize the space of the Cartesian plane by adding the `legend.position` argument within `theme` and specifying the location using the **relative** position on the Cartesian plane. In other words, we imagine the entire plot to be within [0,1] on the horizontal and vertical axes. This is in contrast to `annotate()` where you specify the position based on the actual values on the horizontal and vertical axes. We can also choose to suppress the legend title and remove the default fill around the legend key by specifying `element_blank()` for both `legend.title` and `legend.key` arguments within `theme`. We can make the default font size of the legend text bigger using `legend.text`.
+
+To complete the thought the figure is conveying, we add the title using the argument `title` within the `labs()` function and specify the font settings using the `plot.title` argument within `theme`. Since we already have an existing `custom_theme` theme object, we can just add another `theme()` function within our plot to append or overwrite existing settings in `custom_theme` just for this specific plot.
+
+```{r title_legendpos, warning = FALSE, message = FALSE}
+basic_scatter <- ggplot(data = data, aes(x = GA.at.outcome, y = Birthweight)) +
+  geom_jitter(aes(color = discord), size = 1) + 
+  scale_x_continuous(limits = c(147, 315), 
+                     breaks = seq(147, 315, 28),
+                     labels = seq(147, 315, 28)/7) +
+  scale_y_continuous(breaks = seq(0, 5000, 500),
+                     labels = function(x) format(x, big.mark = ",")) +
+  scale_color_manual(breaks = c("Concordant", "Discordant"),
+                     values = c("darkgray", "#920045")) +
+  # Add the title
+  labs(title = "Gestational age and birth weight concur with pre-term birth definition",
+       x = "Gestational age at birth (in weeks)",
+       y = "Birth weight at birth (in grams)") +
+  geom_smooth(linewidth = 1.5, color = "#024873", fill = "#024873", alpha = 0.1) + 
+  geom_hline(yintercept = 2500, linetype = "dashed", linewidth = 0.75) +
+  geom_vline(xintercept = 37*7, linetype = "dashed", linewidth = 0.75) + 
+  annotate("text", x = 27*7, y = 3000, hjust = 0, color = "#920045",
+           label = "Pre-term according to \n gestational age only") +
+  annotate("text", x = 40*7, y = 1500, hjust = 0, color = "#920045",
+           label = "Pre-term according to \n birth weight only") +
+  custom_theme +
+  # Add the legend position and title font settings
+  theme(legend.position = c(0.1, 0.9),
+        legend.title = element_blank(),
+        legend.key = element_blank(),
+        legend.text = element_text(size = 11),
+        plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
+basic_scatter
+```
+
+If this scatterplot was to be used as part of an analysis for a journal article, we should also write some documentation on why and how the analysis was done as if for a Methods section. An example is:
+
+*This analysis examined the concurrence of two commonly-used definitions of pre-term birth: gestational age at birth less than 37 weeks and birth weight of less than 2,500 grams. A scatterplot with a loess smoother was used to visualize the correlation between gestational age and birth weight. The definitions of pre-term birth were annotated on the plot, and discordant observations, i.e. where the the observation satisfied only one of the two definitions of pre-term birth, were highlighted.*
+
+We should also write a few sentences summarizing our findings from this analysis, as if for a Results section. We should be **numerate** whenever possible. An example is:
+
+*The scatterplot shows a strong positive correlation between gestational age and birth weight, and this is further supported by a near linear relationship represented by the loess smoother line. Based on the loess smoother, the average birth weight among children born at 25 weeks gestation was 500 g.  The average birth weight increases to roughly 2000 g by 33 weeks gestation and 3000 g by 37 weeks gestation.  Only 50 of the 793 (6%) of live births had disagreements on the definitions of pre-term birth.*
+
+
+# In-Class Exercise
+
+Work together with your table-mates to complete the following:
+
+1. Load the "NepalAnthro.rdata" object. From the `nepal.anthro` data frame, create a new data frame that has only the first observation for each child (representing the baseline assessment in the Nepal Antro study) with complete data on age, height, and weight.
+2. Create a scatterplot of weight against age.
+    a. Label the axes clearly and make sure that all observations can be seen
+    b. Jitter the data or use different levels of transparency as necessary
+    c. A smoothed curve allows us to emphasize the relationship between the average weight and age without making a strong parametric assumption, e.g. linearity. Add a smoothed curve (without error bands) for each of the following specifications (create three separate plots):
+        i. loess with `span = 0.5`
+        ii. a natural spline with 3 degrees of freedom *HINT*: First install and load the `splines()` package, then obtain the natural spline using `geom_smooth(method = "glm", formula = y ~ ns(x, df = 3), se = FALSE)`.
+        iii. kernel smoother with bandwidth 20 months *HINT*: You would need to first sort the data by `age`, `wt`, and `id` then create a new variable using the `ksmooth` function and extract the output, specifically: `ksmooth(age, wt, bandwidth = 20)$y`. Use a `geom_line()` geom with this new variable as the `y` argument within `aes()`.
+    d. Describe the relationship between weight and age in 1-2 sentences as if for a journal article. Be as numerate as possible, i.e. your sentences should include numbers!
+3. Recreate the plot by using different colors for the plotting symbol for boys and girls.
+    a. Choose one of the smoothing functions in #3 to add a smoothed curve separately for boys and girls.
+    b. Describe the relationship between weight and age separately by sex in 1-2 sentences as if for a journal article. Be as numerate as possible.
+4. Describe how you constructed your figures in 1-2 sentences as if for the methods section of a journal article. When using statistical jargon, explain as plainly as possible.

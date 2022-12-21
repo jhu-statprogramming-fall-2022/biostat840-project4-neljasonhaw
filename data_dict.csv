@@ -1,0 +1,7 @@
+varname;label;definition
+cases;Cases;Cumulative confirmed or suspected cases
+caseDensity;Case Density;Number of cases per 100k population calculated using a 7-day rolling average
+testPositivityRatio;Test Positivity Ratio;Ratio of people who test positive calculated using a 7-day rolling average
+weeklyCovidAdmissionsPer100k;Weekly COVID Admissions per 100K population;Number of COVID patients per 100k population admitted in the past week
+vaccinationsCompletedRatio;Vaccinations Completed Ratio;Ratio of population that has completed vaccinations
+deaths;Deaths;Cumulative deaths that are suspected or confirmed to have been caused by COVID-19.
